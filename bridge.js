@@ -34,7 +34,7 @@ const SPRITE_APPS_SCRIPT_URL =
           )
         );
       },
-      20000
+      60000
     );
 
     function cleanup_() {
