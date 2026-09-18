@@ -1,6 +1,6 @@
 /*
-  SPRITE LOCKER — GITHUB -> APPS SCRIPT BRIDGE
-  Replace the URL only if your Apps Script deployment URL changes.
+  SPRITE LOCKER
+  GitHub Pages -> Google Apps Script bridge
 */
 
 const SPRITE_APPS_SCRIPT_URL =
@@ -9,211 +9,138 @@ const SPRITE_APPS_SCRIPT_URL =
 
 (function () {
 
-  let bridgeFrame = null;
-  let bridgeReady = false;
-  let bridgeOrigin = null;
+  let iframe = null;
+  let ready = false;
   let nextId = 1;
-  let readyTimer = null;
 
-  const pending = new Map();
   const queue = [];
+  const pending = new Map();
 
 
-  function bridgeUrl_() {
+  // ==================================================
+  // CREATE APPS SCRIPT IFRAME
+  // ==================================================
 
-    const separator =
-      SPRITE_APPS_SCRIPT_URL.includes('?')
-        ? '&'
-        : '?';
+  function createBridge() {
 
-    return (
-      SPRITE_APPS_SCRIPT_URL +
-      separator +
-      'bridge=1&parentOrigin=' +
-      encodeURIComponent(
-        window.location.origin
-      )
-    );
-
-  }
+    if (iframe) return;
 
 
-  function showBridgeError_(message) {
-
-    console.error(
-      '[Sprite Locker Bridge]',
-      message
-    );
-
-    const loginError =
-      document.getElementById(
-        'loginError'
-      );
-
-    if (loginError) {
-
-      loginError.textContent =
-        'Could not connect to Sprite Locker data. ' +
-        'Refresh the page and try again.';
-
-    }
-
-  }
-
-
-  function ensureBridge_() {
-
-    if (bridgeFrame) {
-      return;
-    }
-
-
-    bridgeFrame =
+    iframe =
       document.createElement(
         'iframe'
       );
 
 
-    bridgeFrame.id =
-      'spriteAppsScriptBridge';
+    iframe.src =
+      SPRITE_APPS_SCRIPT_URL +
+      '?bridge=1&parentOrigin=' +
+      encodeURIComponent(
+        window.location.origin
+      );
 
 
-    bridgeFrame.src =
-      bridgeUrl_();
+    iframe.style.position =
+      'fixed';
 
+    iframe.style.left =
+      '-10000px';
 
-    bridgeFrame.style.cssText =
-      'position:fixed;' +
-      'left:-9999px;' +
-      'top:-9999px;' +
-      'width:2px;' +
-      'height:2px;' +
-      'border:0;' +
-      'opacity:0;' +
-      'pointer-events:none;';
+    iframe.style.top =
+      '-10000px';
 
+    iframe.style.width =
+      '1px';
 
-    bridgeFrame.setAttribute(
-      'aria-hidden',
-      'true'
-    );
+    iframe.style.height =
+      '1px';
 
-
-    bridgeFrame.onload =
-      function () {
-
-        try {
-
-          bridgeFrame
-            .contentWindow
-            .postMessage(
-              {
-                spriteLockerBridge:
-                  true,
-
-                type:
-                  'parent-ready',
-
-                parentOrigin:
-                  window.location.origin
-              },
-              '*'
-            );
-
-        } catch (error) {
-
-          console.error(
-            error
-          );
-
-        }
-
-      };
+    iframe.style.border =
+      '0';
 
 
     document.body.appendChild(
-      bridgeFrame
+      iframe
     );
 
 
-    readyTimer =
-      setTimeout(
+    iframe.onload =
+      function () {
+
+        startHandshake();
+
+      };
+
+  }
+
+
+  // ==================================================
+  // HANDSHAKE
+  // ==================================================
+
+  function startHandshake() {
+
+    let attempts = 0;
+
+
+    const timer =
+      setInterval(
         function () {
 
-          if (!bridgeReady) {
+          attempts++;
 
-            showBridgeError_(
-              'Apps Script bridge did not become ready.'
+
+          if (
+            iframe &&
+            iframe.contentWindow
+          ) {
+
+            iframe.contentWindow
+              .postMessage(
+                {
+                  spriteLockerBridge:
+                    true,
+
+                  type:
+                    'parent-ready'
+                },
+                '*'
+              );
+
+          }
+
+
+          if (
+            ready ||
+            attempts >= 30
+          ) {
+
+            clearInterval(
+              timer
             );
 
           }
 
+
+          if (
+            !ready &&
+            attempts === 30
+          ) {
+
+            showConnectionError();
+
+          }
+
         },
-        12000
+        300
       );
 
   }
 
 
-  function dispatch_(call) {
-
-    if (
-      !bridgeReady ||
-      !bridgeFrame ||
-      !bridgeFrame.contentWindow
-    ) {
-
-      queue.push(
-        call
-      );
-
-      ensureBridge_();
-
-      return;
-
-    }
-
-
-    bridgeFrame
-      .contentWindow
-      .postMessage(
-        {
-          spriteLockerBridge:
-            true,
-
-          type:
-            'call',
-
-          id:
-            call.id,
-
-          functionName:
-            call.functionName,
-
-          args:
-            call.args
-        },
-        bridgeOrigin || '*'
-      );
-
-  }
-
-
-  function flushQueue_() {
-
-    while (
-      bridgeReady &&
-      queue.length
-    ) {
-
-      dispatch_(
-        queue.shift()
-      );
-
-    }
-
-  }
-
+  // ==================================================
+  // RECEIVE FROM APPS SCRIPT
+  // ==================================================
 
   window.addEventListener(
     'message',
@@ -231,50 +158,40 @@ const SPRITE_APPS_SCRIPT_URL =
 
 
       /*
-        Only accept messages from the
-        Apps Script bridge iframe.
+        Message must come from our
+        Apps Script iframe.
       */
 
       if (
-        bridgeFrame &&
+        !iframe ||
         event.source !==
-          bridgeFrame.contentWindow
+          iframe.contentWindow
       ) {
         return;
       }
 
+
+      // ----------------------------------------------
+      // BRIDGE READY
+      // ----------------------------------------------
 
       if (
         data.type ===
         'ready'
       ) {
 
-        bridgeOrigin =
-          event.origin;
+        ready = true;
 
-
-        bridgeReady =
-          true;
-
-
-        if (readyTimer) {
-
-          clearTimeout(
-            readyTimer
-          );
-
-          readyTimer =
-            null;
-
-        }
-
-
-        flushQueue_();
+        flushQueue();
 
         return;
 
       }
 
+
+      // ----------------------------------------------
+      // SERVER RESULT
+      // ----------------------------------------------
 
       if (
         data.type !==
@@ -284,59 +201,66 @@ const SPRITE_APPS_SCRIPT_URL =
       }
 
 
-      const call =
-        pending.get(
-          String(
-            data.id
-          )
+      const id =
+        String(
+          data.id
         );
 
 
-      if (!call) {
+      const request =
+        pending.get(
+          id
+        );
+
+
+      if (!request) {
         return;
       }
 
 
       pending.delete(
-        String(
-          data.id
-        )
+        id
       );
 
 
-      if (data.ok) {
+      if (
+        data.ok
+      ) {
 
-        if (call.success) {
+        if (
+          request.success
+        ) {
 
-          call.success(
+          request.success(
             data.value
           );
 
         }
 
-        return;
-
-      }
-
-
-      const error =
-        new Error(
-          data.error ||
-          'Server request failed.'
-        );
-
-
-      if (call.failure) {
-
-        call.failure(
-          error
-        );
-
       } else {
 
-        console.error(
-          error
-        );
+        const error =
+          new Error(
+            data.error ||
+            'Server request failed.'
+          );
+
+
+        if (
+          request.failure
+        ) {
+
+          request.failure(
+            error
+          );
+
+        } else {
+
+          console.error(
+            error
+          );
+
+        }
 
       }
 
@@ -344,7 +268,94 @@ const SPRITE_APPS_SCRIPT_URL =
   );
 
 
-  function makeRunner_(
+  // ==================================================
+  // SEND REQUEST
+  // ==================================================
+
+  function sendRequest(
+    request
+  ) {
+
+    if (
+      !ready
+    ) {
+
+      queue.push(
+        request
+      );
+
+      createBridge();
+
+      return;
+
+    }
+
+
+    iframe.contentWindow
+      .postMessage(
+        {
+          spriteLockerBridge:
+            true,
+
+          type:
+            'call',
+
+          id:
+            request.id,
+
+          functionName:
+            request.functionName,
+
+          args:
+            request.args
+        },
+        '*'
+      );
+
+  }
+
+
+  function flushQueue() {
+
+    while (
+      queue.length
+    ) {
+
+      const request =
+        queue.shift();
+
+
+      iframe.contentWindow
+        .postMessage(
+          {
+            spriteLockerBridge:
+              true,
+
+            type:
+              'call',
+
+            id:
+              request.id,
+
+            functionName:
+              request.functionName,
+
+            args:
+              request.args
+          },
+          '*'
+        );
+
+    }
+
+  }
+
+
+  // ==================================================
+  // GOOGLE.SCRIPT.RUN COMPATIBILITY
+  // ==================================================
+
+  function createRunner(
     successHandler,
     failureHandler
   ) {
@@ -353,89 +364,94 @@ const SPRITE_APPS_SCRIPT_URL =
       {},
       {
 
-        get:
-          function (
-            _target,
-            property
+        get(
+          target,
+          property
+        ) {
+
+          if (
+            property ===
+            'withSuccessHandler'
           ) {
 
-            if (
-              property ===
-              'withSuccessHandler'
+            return function (
+              handler
             ) {
 
-              return function (fn) {
-
-                return makeRunner_(
-                  fn,
-                  failureHandler
-                );
-
-              };
-
-            }
-
-
-            if (
-              property ===
-              'withFailureHandler'
-            ) {
-
-              return function (fn) {
-
-                return makeRunner_(
-                  successHandler,
-                  fn
-                );
-
-              };
-
-            }
-
-
-            return function (...args) {
-
-              const id =
-                String(
-                  nextId++
-                );
-
-
-              const call = {
-
-                id:
-                  id,
-
-                functionName:
-                  String(
-                    property
-                  ),
-
-                args:
-                  args,
-
-                success:
-                  successHandler,
-
-                failure:
-                  failureHandler
-
-              };
-
-
-              pending.set(
-                id,
-                call
-              );
-
-
-              dispatch_(
-                call
+              return createRunner(
+                handler,
+                failureHandler
               );
 
             };
 
           }
+
+
+          if (
+            property ===
+            'withFailureHandler'
+          ) {
+
+            return function (
+              handler
+            ) {
+
+              return createRunner(
+                successHandler,
+                handler
+              );
+
+            };
+
+          }
+
+
+          return function (
+            ...args
+          ) {
+
+            const id =
+              String(
+                nextId++
+              );
+
+
+            const request = {
+
+              id:
+                id,
+
+              functionName:
+                String(
+                  property
+                ),
+
+              args:
+                args,
+
+              success:
+                successHandler,
+
+              failure:
+                failureHandler
+
+            };
+
+
+            pending.set(
+              id,
+              request
+            );
+
+
+            sendRequest(
+              request
+            );
+
+          };
+
+        }
 
       }
     );
@@ -452,11 +468,42 @@ const SPRITE_APPS_SCRIPT_URL =
 
 
   window.google.script.run =
-    makeRunner_(
+    createRunner(
       null,
       null
     );
 
+
+  // ==================================================
+  // CONNECTION ERROR
+  // ==================================================
+
+  function showConnectionError() {
+
+    console.error(
+      'Sprite Locker could not connect to Apps Script.'
+    );
+
+
+    const error =
+      document.getElementById(
+        'loginError'
+      );
+
+
+    if (error) {
+
+      error.textContent =
+        'Could not connect to Sprite Locker data.';
+
+    }
+
+  }
+
+
+  // ==================================================
+  // START
+  // ==================================================
 
   if (
     document.readyState ===
@@ -465,12 +512,12 @@ const SPRITE_APPS_SCRIPT_URL =
 
     document.addEventListener(
       'DOMContentLoaded',
-      ensureBridge_
+      createBridge
     );
 
   } else {
 
-    ensureBridge_();
+    createBridge();
 
   }
 
