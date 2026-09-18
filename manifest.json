@@ -1,8 +1,10 @@
 {
   "name": "Sprite Locker",
   "short_name": "Sprite Locker",
-  "description": "Sprite Locker",
+  "description": "Fortnite Sprite Locker",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone"
+  "display": "standalone",
+  "background_color": "#07102f",
+  "theme_color": "#07102f"
 }
