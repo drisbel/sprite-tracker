@@ -1,0 +1,8 @@
+{
+  "name": "Sprite Locker",
+  "short_name": "Sprite Locker",
+  "description": "Sprite Locker",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone"
+}
