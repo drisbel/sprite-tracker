@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="stylesheet" href="desktop.css">
+</head>
+
+<body>
+
+  <div id="loadingScreen" class="screen">
+    <div>
+      <div class="logo-small">FORTNITE COLLECTION TRACKER</div>
+      <h1>SPRITE LOCKER</h1>
+      <div class="loader"></div>
+    </div>
+  </div>
+
+  <div id="loginScreen" class="screen hidden">
+    <div class="login-card">
+      <div class="logo-small">FORTNITE COLLECTION TRACKER</div>
+      <h1>SPRITE LOCKER</h1>
+      <p>Select your profile</p>
+
+      <div id="userButtons" class="user-buttons"></div>
+
+      <div id="loginError" class="error"></div>
+    </div>
+  </div>
+
+  <div id="appScreen" class="hidden">
+
+    <header>
+      <div>
+        <div class="logo-small">FORTNITE COLLECTION TRACKER</div>
+        <h1>SPRITE LOCKER</h1>
+      </div>
+
+      <div class="header-actions">
+        <button
+          id="refreshButton"
+          class="switch-button"
+          onclick="refreshApp()"
+        >
+          ↻ REFRESH
+        </button>
+
+        <button
+          class="switch-button"
+          onclick="logoutApp()"
+        >
+          SWITCH USER
+        </button>
+      </div>
+    </header>
+
+    <main>
+
+      <section class="progress-section">
+        <div class="progress-header">
+          <div>
+            <div class="player-name" id="playerName"></div>
+            <div class="progress-text" id="progressText"></div>
+          </div>
+
+          <div id="percentageText"></div>
+        </div>
+
+        <div class="progress-bar">
+          <div id="progressFill"></div>
+        </div>
+
+        <div
+          id="variantProgress"
+          class="variant-progress-grid"
+        ></div>
+      </section>
+
+      <nav id="mainTabs" class="tabs">
+        <button class="tab active" onclick="showTab('locker')">LOCKER</button>
+        <button class="tab" onclick="showTab('collections')">COLLECTIONS</button>
+        <button class="tab" onclick="showTab('matches')">FIND TRADES</button>
+        <button class="tab" onclick="showTab('trades')">MY TRADES</button>
+        <button
+          id="adminTabButton"
+          class="tab hidden"
+          onclick="showTab('admin')"
+        >
+          ADMIN
+        </button>
+      </nav>
+
+      <!-- LOCKER -->
+      <section id="lockerTab">
+        <div class="dynamic-table-scroll">
+          <div id="lockerTableInner">
+            <div id="lockerHeader" class="table-header dynamic-grid"></div>
+            <div id="spriteList"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- COLLECTIONS -->
+      <section id="collectionsTab" class="hidden">
+        <div class="matches-intro">
+          <h2>GROUP COLLECTIONS</h2>
+          <p>Compare what everyone has collected.</p>
+        </div>
+
+        <div class="group-stat-grid">
+          <div class="group-stat-card">
+            <div class="group-stat-label">GROUP COLLECTION</div>
+            <div id="groupOwnedCount" class="group-stat-number"></div>
+          </div>
+
+          <div class="group-stat-card">
+            <div class="group-stat-label">GROUP COMPLETION</div>
+            <div id="groupPercentage" class="group-stat-number"></div>
+          </div>
+
+          <div class="group-stat-card">
+            <div class="group-stat-label">MISSING BY EVERYONE</div>
+            <div id="missingEveryoneCount" class="group-stat-number"></div>
+          </div>
+        </div>
+
+        <div id="collectorCards" class="collector-grid"></div>
+
+        <div class="collection-controls">
+          <input
+            id="collectionSearch"
+            class="collection-search"
+            type="search"
+            placeholder="Search sprites..."
+            oninput="renderCollections()"
+          >
+
+          <select
+            id="collectionFilter"
+            class="admin-input"
+            onchange="renderCollections()"
+          >
+            <option value="all">All sprites</option>
+            <option value="mine">Missing by me</option>
+            <option value="everyone">Missing by everyone</option>
+          </select>
+        </div>
+
+        <div class="dynamic-table-scroll">
+          <div id="groupTableInner">
+            <div id="groupHeader" class="table-header dynamic-grid"></div>
+            <div id="groupSpriteList"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FIND TRADES -->
+      <section id="matchesTab" class="hidden">
+        <div class="matches-intro">
+          <h2>FIND TRADES</h2>
+          <p>Select items to trade, gift or request.</p>
+        </div>
+        <div id="tradeMatches"></div>
+      </section>
+
+      <!-- MY TRADES -->
+      <section id="tradesTab" class="hidden">
+        <div class="matches-intro">
+          <h2>MY TRADES</h2>
+        </div>
+        <div id="myTrades"></div>
+      </section>
+
+      <!-- ADMIN -->
+      <section id="adminTab" class="hidden">
+        <div class="matches-intro">
+          <h2>ADMIN</h2>
+          <p>Add sprites, add variants and manage image URLs.</p>
+        </div>
+
+        <div class="admin-grid">
+
+          <div class="admin-card">
+            <h3>ADD NEW SPRITE</h3>
+
+            <label class="admin-label">Sprite name</label>
+            <input
+              id="adminSpriteName"
+              class="admin-input"
+              type="text"
+              placeholder="e.g. Storm Scout"
+            >
+
+            <label class="admin-label">Rarity</label>
+            <input
+              id="adminSpriteRarity"
+              class="admin-input"
+              type="text"
+              value="Rare"
+            >
+
+            <div id="adminNewSpriteImages"></div>
+
+            <button class="admin-primary" onclick="adminAddSprite()">
+              ADD SPRITE
+            </button>
+          </div>
+
+          <div class="admin-card">
+            <h3>ADD NEW VARIANT</h3>
+            <p class="admin-help">Example: Silver, Rainbow, Champion.</p>
+
+            <label class="admin-label">Variant name</label>
+            <input
+              id="adminVariantName"
+              class="admin-input"
+              type="text"
+              placeholder="e.g. Silver"
+            >
+
+            <button class="admin-primary" onclick="adminAddVariant()">
+              ADD VARIANT
+            </button>
+          </div>
+
+          <div class="admin-card admin-wide">
+            <h3>UPDATE SPRITE IMAGES</h3>
+
+            <label class="admin-label">Sprite</label>
+            <select
+              id="adminSpriteSelect"
+              class="admin-input"
+              onchange="renderAdminExistingImages()"
+            ></select>
+
+            <div id="adminExistingImages"></div>
+
+            <button class="admin-primary" onclick="adminSaveSpriteImages()">
+              SAVE IMAGE URLS
+            </button>
+          </div>
+
+
+          <div class="admin-card">
+            <h3>RELEASE STATUS</h3>
+            <p class="admin-help">Apply to an entire variant, an entire sprite, or one individual sprite/variant.</p>
+            <label class="admin-label">Apply to</label>
+            <select id="adminReleaseScope" class="admin-input">
+              <option value="variant">Entire variant (e.g. all Gold)</option>
+              <option value="sprite">Entire sprite (e.g. all Sonic)</option>
+              <option value="individual">Individual sprite + variant</option>
+            </select>
+            <label class="admin-label">Sprite</label>
+            <select id="adminReleaseSprite" class="admin-input"></select>
+            <label class="admin-label">Variant</label>
+            <select id="adminReleaseVariant" class="admin-input"></select>
+            <label class="admin-label">Status</label>
+            <select id="adminReleaseState" class="admin-input">
+              <option value="unreleased">Unreleased</option>
+              <option value="released">Released</option>
+            </select>
+            <button class="admin-primary" onclick="adminSetUnreleased()">SAVE RELEASE STATUS</button>
+          </div>
+
+          <div class="admin-card">
+            <h3>RENAME SPRITE</h3>
+            <label class="admin-label">Sprite</label>
+            <select id="adminRenameSprite" class="admin-input"></select>
+            <label class="admin-label">New name</label>
+            <input id="adminRenameName" class="admin-input" type="text" placeholder="Enter new name">
+            <button class="admin-primary" onclick="adminRenameSprite()">RENAME SPRITE</button>
+          </div>
+
+          <div class="admin-card admin-wide">
+            <h3>SPRITE ORDER</h3>
+            <p class="admin-help">Use the arrows to control the order shown in Locker and Collections.</p>
+            <div id="adminSpriteOrderList" class="admin-order-list"></div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="bridge.js"></script>
+  <script src="desktop.js"></script>
+
+</body>
+</html>
