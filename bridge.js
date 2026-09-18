@@ -4,7 +4,7 @@
   STEP 1:
   Paste your deployed Apps Script /exec URL below.
 */
-const SPRITE_APPS_SCRIPT_URL = 'PASTE_YOUR_APPS_SCRIPT_EXEC_URL_HERE';
+const SPRITE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby16GaDfmsl0w9DnseX2OSmGfoOw2Mp29EiBfbeGtizLVEGtopcNMmhHT67kcSWxADdYQ/exec';
 
 (function () {
   let bridgeReady = false;
