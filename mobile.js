@@ -200,20 +200,44 @@ function handleLoginSuccess(
 function loadApp() {
 
   serverCall(
-    handleAppData,
-    'getAppData',
+    handleBootstrapData,
+    'getBootstrapData',
     sessionToken
   );
 
 }
 
 
-function handleAppData(data) {
+function applyMasteredItems_(items) {
+
+  masteredMap = {};
+
+  (items || []).forEach(
+    item => {
+      masteredMap[
+        masteredKey_(
+          item.SpriteID,
+          item.VariantID
+        )
+      ] = true;
+    }
+  );
+
+}
+
+
+function handleBootstrapData(bundle) {
 
   appData =
-    data;
+    bundle.appData;
 
-        loadSpriteAdminMeta_();
+  applySpriteAdminMeta_(
+    bundle.spriteAdminMeta || {}
+  );
+
+  applyMasteredItems_(
+    bundle.masteredItems || []
+  );
 
 
   document
@@ -261,9 +285,6 @@ function handleAppData(data) {
     currentTab
   );
 
-
-  loadMasteredState_();
-
 }
 
 
@@ -279,10 +300,8 @@ function refreshApp() {
       'refreshButton'
     );
 
-
   button.disabled =
     true;
-
 
   button.textContent =
     '↻ REFRESHING...';
@@ -290,19 +309,22 @@ function refreshApp() {
 
   google.script.run
     .withSuccessHandler(
-      data => {
+      bundle => {
 
         appData =
-          data;
+          bundle.appData;
 
-        loadSpriteAdminMeta_();
+        applySpriteAdminMeta_(
+          bundle.spriteAdminMeta || {}
+        );
 
+        applyMasteredItems_(
+          bundle.masteredItems || []
+        );
 
         renderLocker();
 
         renderAdmin();
-
-        loadMasteredState_();
 
 
         if (
@@ -363,7 +385,7 @@ function refreshApp() {
 
       }
     )
-    .getAppData(
+    .getBootstrapData(
       sessionToken
     );
 
@@ -453,20 +475,12 @@ function loadMasteredState_() {
 
     items => {
 
-      masteredMap = {};
-
-      (items || []).forEach(
-        item => {
-          masteredMap[
-            masteredKey_(
-              item.SpriteID,
-              item.VariantID
-            )
-          ] = true;
-        }
+      applyMasteredItems_(
+        items
       );
 
       if (appData) {
+
         renderLocker();
 
         if (
@@ -475,11 +489,13 @@ function loadMasteredState_() {
         ) {
           renderCollections();
         }
+
       }
 
     },
 
     'getMasteredItems',
+
     sessionToken
 
   );
@@ -2092,16 +2108,140 @@ function loadTradeMatches() {
       'tradeMatches'
     );
 
-
   container.innerHTML =
     '<div class="empty-message">Checking collections...</div>';
 
-
-  serverCall(
-    renderTradeMatches,
-    'getTradeMatches',
-    sessionToken
+  // PERFORMANCE:
+  // Everything required for trade matching is already in appData.
+  // No Apps Script request is needed here.
+  renderTradeMatches(
+    buildTradeMatchesLocal_()
   );
+
+}
+
+
+function buildTradeMatchesLocal_() {
+
+  if (!appData) {
+    return [];
+  }
+
+  const currentUserId =
+    appData.currentUser.userId;
+
+  const collectionMap = {};
+
+  appData.collections.forEach(
+    row => {
+      collectionMap[
+        row.UserID +
+        '|' +
+        row.SpriteID
+      ] =
+        row.Owned || {};
+    }
+  );
+
+  return appData.users
+    .filter(
+      user =>
+        user.UserID !==
+        currentUserId
+    )
+    .map(
+      otherUser => {
+
+        const theyHave = [];
+        const youHave = [];
+
+        appData.sprites.forEach(
+          sprite => {
+
+            const mine =
+              collectionMap[
+                currentUserId +
+                '|' +
+                sprite.SpriteID
+              ] || {};
+
+            const theirs =
+              collectionMap[
+                otherUser.UserID +
+                '|' +
+                sprite.SpriteID
+              ] || {};
+
+            appData.variants.forEach(
+              variant => {
+
+                const variantId =
+                  variant.VariantID;
+
+                if (
+                  !variantExists_(
+                    sprite,
+                    variantId
+                  ) ||
+                  variantIsUnreleased_(
+                    sprite,
+                    variantId
+                  )
+                ) {
+                  return;
+                }
+
+                const item = {
+                  SpriteID:
+                    sprite.SpriteID,
+                  SpriteName:
+                    sprite.SpriteName,
+                  Variant:
+                    variantId,
+                  VariantName:
+                    variant.VariantName,
+                  ImageURL:
+                    getSpriteImage_(
+                      sprite,
+                      variantId
+                    )
+                };
+
+                if (
+                  !mine[variantId] &&
+                  theirs[variantId]
+                ) {
+                  theyHave.push(
+                    item
+                  );
+                }
+
+                if (
+                  mine[variantId] &&
+                  !theirs[variantId]
+                ) {
+                  youHave.push(
+                    item
+                  );
+                }
+
+              }
+            );
+
+          }
+        );
+
+        return {
+          user:
+            otherUser,
+          theyHave:
+            theyHave,
+          youHave:
+            youHave
+        };
+
+      }
+    );
 
 }
 
@@ -2453,49 +2593,16 @@ function loadMyTrades() {
       'myTrades'
     );
 
-
   container.innerHTML =
     '<div class="empty-message">Loading trades...</div>';
 
 
+  // PERFORMANCE:
+  // Trades + cleared IDs are now combined server-side.
   serverCall(
-
-    result => {
-
-      serverCall(
-
-        clearedTradeIds => {
-
-          const cleared =
-            new Set(
-              clearedTradeIds || []
-            );
-
-          result.trades =
-            (result.trades || [])
-              .filter(
-                trade =>
-                  !cleared.has(
-                    trade.TradeID
-                  )
-              );
-
-          renderMyTrades(
-            result
-          );
-
-        },
-
-        'getClearedTradeIds',
-        sessionToken
-
-      );
-
-    },
-
-    'getMyTrades',
+    renderMyTrades,
+    'getMyTradesBundle',
     sessionToken
-
   );
 
 }
